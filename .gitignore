@@ -1,0 +1,54 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+[Dd]ebug*/
+[Rr]elease*/
+[Aa]rtifacts/
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# .NET tooling and local user state
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.rsuser
+*.DotSettings.user
+*.nupkg
+*.snupkg
+
+# NuGet and package caches
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Local configuration and secrets
+*.local.json
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.local.json
+secrets.json
+secrets.*.json
+.env
+.env.*
+!.env.example
+
+# Coverage and test reports
+coverage/
+TestResults/
+*.coverage
+*.coveragexml
+*.trx
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.bak
+
+# Operating system files
+.DS_Store
+Thumbs.db
