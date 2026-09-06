@@ -41,7 +41,7 @@ Los módulos comparten la base de datos, pero cada módulo es dueño de sus tabl
 
 * React.
 * TypeScript estricto.
-* Vite.
+* Next.js App Router.
 * MUI Core.
 * TanStack Query.
 * TanStack Table.
@@ -135,7 +135,6 @@ Los módulos comparten la base de datos, pero cada módulo es dueño de sus tabl
 
 ```text
 /apps
-    /web
     /api
     /worker
 
@@ -158,16 +157,6 @@ Los módulos comparten la base de datos, pero cada módulo es dueño de sus tabl
     /api
     /runbooks
 ```
-
-### `/apps/web`
-
-SPA React:
-
-* Rutas.
-* Layouts.
-* Componentes.
-* Permisos visuales.
-* Cliente API generado desde OpenAPI.
 
 ### `/apps/api`
 
@@ -209,6 +198,8 @@ Cada módulo contiene:
 * ADR.
 * API.
 * Runbooks.
+
+El frontend vive en un repositorio independiente y utiliza Next.js App Router. Su contrato con este repositorio es la API REST versionada bajo `/api/v1`.
 
 
 

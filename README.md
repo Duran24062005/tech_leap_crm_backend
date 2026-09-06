@@ -4,7 +4,7 @@ CRM de empleabilidad para centralizar la gestión comercial, la selección de ta
 
 ## Estado del proyecto
 
-El proyecto se encuentra en fase de definición y planificación del MVP. La documentación funcional, técnica y de ejecución está disponible antes de iniciar la implementación.
+El proyecto cuenta con la base de plataforma del Sprint 0: solución .NET 10, API, Worker, PostgreSQL local, migración inicial, pruebas y CI. Las funcionalidades de negocio comienzan en Sprint 1.
 
 ## Alcance del MVP
 
@@ -54,7 +54,7 @@ Principios técnicos principales:
 ### Frontend
 
 - React con TypeScript estricto.
-- Vite y MUI Core.
+- Next.js App Router y MUI Core.
 - TanStack Query y TanStack Table.
 - React Hook Form y Zod.
 - Vitest y Playwright.
@@ -67,17 +67,22 @@ Principios técnicos principales:
 - Azure Container Apps, Key Vault y PostgreSQL Flexible Server.
 - GitHub Actions, OpenTelemetry y Application Insights.
 
-## Estructura del repositorio
+## Relación entre repositorios
+
+Backend y frontend son repositorios independientes. El frontend consume la API REST versionada bajo `/api/v1` y recibe la URL mediante `NEXT_PUBLIC_API_BASE_URL`.
+
+## Estructura del backend
 
 ```text
-apps/
-	web/       # Frontend React
-	api/       # Backend ASP.NET Core
-	worker/    # Automatizaciones e integraciones
-src/
-	Modules/   # Módulos de dominio
-infra/       # Infraestructura y configuración Azure
-docs/        # Diseño, API, ADR y runbooks
+apps/api/                         # ASP.NET Core API
+apps/worker/                      # Worker de automatizaciones
+src/BuildingBlocks/               # Componentes compartidos
+src/Modules/                      # Librerías por módulo
+tests/                            # Unitarias e integración
+infra/local/                      # PostgreSQL local con Compose
+docs/adr/                         # Decisiones arquitectónicas
+docs/api/                         # Contratos API
+docs/runbooks/                    # Operación local
 ```
 
 ## Documentación
@@ -101,6 +106,6 @@ La documentación está organizada por tema en [`docs/design/Requerimientos.md`]
 ## Próximos pasos
 
 1. Aprobar decisiones pendientes del MVP y las modalidades de vinculación.
-2. Crear la estructura inicial de la solución .NET 10 y el frontend.
-3. Configurar PostgreSQL, autenticación, auditoría y CI/CD.
+2. Implementar Company y Identity en Sprint 1.
+3. Configurar Auth0, auditoría y servicios Azure por ambiente.
 4. Implementar el flujo crítico: Company → Opportunity → Requirement → Vacancy → Application → Selection → Engagement.
