@@ -1,0 +1,70 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Restore
+        run: dotnet restore tech_leap_crm_backend.slnx
+
+      - name: Build
+        run: dotnet build tech_leap_crm_backend.slnx --no-restore --configuration Release
+
+      - name: Tests
+        run: dotnet test tech_leap_crm_backend.slnx --no-build --configuration Release --logger "trx;LogFileName=test-results.trx"
+
+      - name: Validate migrations
+        run: dotnet ef migrations script --idempotent --project apps/api/TechLeap.Crm.Api/TechLeap.Crm.Api.csproj --startup-project apps/api/TechLeap.Crm.Api/TechLeap.Crm.Api.csproj --output migration.sql
+
+      - name: Dependency vulnerability scan
+        run: dotnet list tech_leap_crm_backend.slnx package --vulnerable --include-transitive
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: '**/TestResults/*.trx'
+
+  codeql:
+    name: SAST / CodeQL
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build for CodeQL
+        run: dotnet build tech_leap_crm_backend.slnx --configuration Release
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
