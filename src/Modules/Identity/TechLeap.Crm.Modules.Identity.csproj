@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>TechLeap.Crm.Modules.Identity</RootNamespace>
+    <AssemblyName>TechLeap.Crm.Modules.Identity</AssemblyName>
+  </PropertyGroup>
+</Project>

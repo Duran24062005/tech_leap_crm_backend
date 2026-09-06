@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>TechLeap.Crm.Modules.Ats</RootNamespace>
+    <AssemblyName>TechLeap.Crm.Modules.Ats</AssemblyName>
+  </PropertyGroup>
+</Project>

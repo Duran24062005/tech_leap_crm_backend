@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>TechLeap.Crm.Api</RootNamespace>
+    <AssemblyName>TechLeap.Crm.Api</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../src/BuildingBlocks/TechLeap.Crm.BuildingBlocks/TechLeap.Crm.BuildingBlocks.csproj" />
+    <ProjectReference Include="../../../src/Modules/Identity/TechLeap.Crm.Modules.Identity.csproj" />
+    <ProjectReference Include="../../../src/Modules/CRM/TechLeap.Crm.Modules.Crm.csproj" />
+    <ProjectReference Include="../../../src/Modules/ATS/TechLeap.Crm.Modules.Ats.csproj" />
+    <ProjectReference Include="../../../src/Modules/Engagements/TechLeap.Crm.Modules.Engagements.csproj" />
+    <ProjectReference Include="../../../src/Modules/Billing/TechLeap.Crm.Modules.Billing.csproj" />
+    <ProjectReference Include="../../../src/Modules/Documents/TechLeap.Crm.Modules.Documents.csproj" />
+    <ProjectReference Include="../../../src/Modules/Work/TechLeap.Crm.Modules.Work.csproj" />
+    <ProjectReference Include="../../../src/Modules/Integrations/TechLeap.Crm.Modules.Integrations.csproj" />
+    <ProjectReference Include="../../../src/Modules/Reporting/TechLeap.Crm.Modules.Reporting.csproj" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,16 @@
+<Solution>
+  <Project Path="apps/api/TechLeap.Crm.Api/TechLeap.Crm.Api.csproj" />
+  <Project Path="apps/worker/TechLeap.Crm.Worker/TechLeap.Crm.Worker.csproj" />
+  <Project Path="src/BuildingBlocks/TechLeap.Crm.BuildingBlocks/TechLeap.Crm.BuildingBlocks.csproj" />
+  <Project Path="src/Modules/Identity/TechLeap.Crm.Modules.Identity.csproj" />
+  <Project Path="src/Modules/CRM/TechLeap.Crm.Modules.Crm.csproj" />
+  <Project Path="src/Modules/ATS/TechLeap.Crm.Modules.Ats.csproj" />
+  <Project Path="src/Modules/Engagements/TechLeap.Crm.Modules.Engagements.csproj" />
+  <Project Path="src/Modules/Billing/TechLeap.Crm.Modules.Billing.csproj" />
+  <Project Path="src/Modules/Documents/TechLeap.Crm.Modules.Documents.csproj" />
+  <Project Path="src/Modules/Work/TechLeap.Crm.Modules.Work.csproj" />
+  <Project Path="src/Modules/Integrations/TechLeap.Crm.Modules.Integrations.csproj" />
+  <Project Path="src/Modules/Reporting/TechLeap.Crm.Modules.Reporting.csproj" />
+  <Project Path="tests/TechLeap.Crm.UnitTests/TechLeap.Crm.UnitTests.csproj" />
+  <Project Path="tests/TechLeap.Crm.IntegrationTests/TechLeap.Crm.IntegrationTests.csproj" />
+</Solution>
