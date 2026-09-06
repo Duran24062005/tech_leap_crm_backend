@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tech_leap_crm}
+      POSTGRES_USER: ${POSTGRES_USER:-tech_leap}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tech_leap_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - tech_leap_crm_postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - tech_leap_crm_local
+
+volumes:
+  tech_leap_crm_postgres:
+
+networks:
+  tech_leap_crm_local:
