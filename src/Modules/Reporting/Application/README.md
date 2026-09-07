@@ -1,0 +1,30 @@
+# Reporting — Application
+
+## Purpose
+
+Contains the use cases, commands, queries, validation and ports for the Reporting module.
+
+## Responsibilities
+
+Implements only concerns owned by Reporting and keeps dependencies flowing inward toward the domain.
+
+## What belongs here
+
+- use cases, commands, queries, validation and ports.
+- Supporting types and tests specific to this layer.
+- Explicit dependencies required by the module.
+
+## What does not belong here
+
+- Concerns owned by another module.
+- Host startup, HTTP pipeline or frontend code.
+- Secrets or environment-specific values.
+
+## Related documentation
+
+- [Reporting module](../README.md).
+- [Module boundaries](../../README.md).
+
+## Current status
+
+This is an intentional Sprint 0 scaffold and will be populated with Reporting functionality in its corresponding sprint.

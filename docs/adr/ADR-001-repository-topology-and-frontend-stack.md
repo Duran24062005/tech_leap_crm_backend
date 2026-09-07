@@ -1,23 +1,31 @@
-# ADR-001: Repositorios independientes y Next.js
+# ADR-001: Independent repositories and Next.js
 
-## Estado
+## Status
 
-Aceptado — 2026-09-06
+Accepted — 2026-09-06
 
-## Contexto
+## Context
 
-El proyecto se encuentra en dos repositorios Git independientes. La documentación inicial describía una solución unificada con `/apps/web` y un frontend basado en Vite, mientras que el frontend existente ya estaba creado con Next.js 16.
+The project consists of two independent Git repositories. Early documentation described a unified web application, while the existing frontend was already based on Next.js 16.
 
-## Decisión
+## Decision
 
-- Se mantienen dos repositorios: uno para Backend y otro para frontend.
-- El backend conserva sus hosts `apps/api` y `apps/worker`.
-- El frontend continúa con Next.js App Router.
-- El contrato entre repositorios será HTTP/JSON versionado bajo `/api/v1` y variables de entorno explícitas.
+- Keep separate backend and frontend repositories.
+- Keep `apps/api` and `apps/worker` as backend hosts.
+- Continue with Next.js App Router for the frontend.
+- Use versioned HTTP/JSON under `/api/v1` as the repository boundary.
+- Provide the frontend API URL through explicit environment variables.
 
-## Consecuencias
+## Consequences
 
-- Cada repositorio tendrá su propio CI y ciclo de despliegue.
-- El frontend utilizará el cliente de API generado o mantenido contra el contrato OpenAPI del backend.
-- La documentación debe referirse a Next.js, no a Vite.
-- No se moverá el historial de ninguno de los repositorios a un monorepo.
+- Each repository has its own CI and deployment lifecycle.
+- Frontend API access is centralized in its HTTP client.
+- Documentation must refer to the implemented Next.js application and the actual repository topology.
+- Neither repository is moved into a monorepo.
+- Cross-repository changes require coordinated contract and documentation updates.
+
+## Related documentation
+
+- [Backend architecture](../design/arquitectura/arquitectura-y-contratos.md).
+- [API contract](../api/README.md).
+- [Frontend architecture](../../../tech_leap_crm_frontend/docs/architecture.md).

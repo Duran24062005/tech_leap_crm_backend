@@ -35,7 +35,7 @@ Story Points:
 **Crear estructura de solución**
 
 ```text
-/apps/web
+tech_leap_crm_frontend/ (independent repository)
 /apps/api
 /apps/worker
 

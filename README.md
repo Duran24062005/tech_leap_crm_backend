@@ -1,111 +1,146 @@
-# Tech Leap CRM
+# Tech Leap CRM Backend
 
-CRM de empleabilidad para centralizar la gestión comercial, la selección de talento, las vinculaciones y el seguimiento operativo de Tech Leap.
+Backend repository for the Tech Leap employability CRM. It is an API-first modular monolith implemented with .NET 10, PostgreSQL and a separate background Worker.
 
-## Estado del proyecto
+## Repository status
 
-El proyecto cuenta con la base de plataforma del Sprint 0: solución .NET 10, API, Worker, PostgreSQL local, migración inicial, pruebas y CI. Las funcionalidades de negocio comienzan en Sprint 1.
+Sprint 0 provides the executable platform foundation:
 
-## Alcance del MVP
+- ASP.NET Core API.
+- Worker Service.
+- Shared BuildingBlocks.
+- One project per business module.
+- PostgreSQL 18 through Docker Compose.
+- EF Core migrations with an Outbox table.
+- Unit and Testcontainers integration tests.
+- Independent GitHub Actions validation.
 
-- Gestión de empresas, contactos y oportunidades comerciales.
-- Gestión ATS de requerimientos, vacantes, candidatos, aplicaciones, entrevistas y selección.
-- Vinculaciones, checklist documental, seguimiento y renovaciones.
-- Documentos privados con control de acceso y versiones.
-- Facturación operativa asociada a empresas y vinculaciones.
-- Reportes operativos y exportaciones filtradas.
+Business capabilities are introduced incrementally from Sprint 1.
 
-Quedan fuera de la primera versión los portales de autoservicio, matching con IA, automatización de WhatsApp, contabilidad completa, nómina y firma electrónica propia.
-
-## Arquitectura prevista
-
-La solución seguirá una arquitectura de monolito modular API-first con tres procesos desplegables:
+## Architecture at a glance
 
 ```text
-Frontend Web (React + TypeScript)
-							|
-							v
-API (ASP.NET Core / .NET 10)
-							|
-			 PostgreSQL + Outbox
-							|
-							v
-Worker + Azure Service Bus
+Independent Next.js frontend
+           |
+           | HTTP/JSON, /api/v1
+           v
+ASP.NET Core API ---- PostgreSQL
+           |              |
+           |              +-- platform schema and Outbox
+           v
+       Worker ---- future Azure Service Bus
 ```
 
-Principios técnicos principales:
+The backend is a modular monolith: modules share a database instance but own their tables, business rules and contracts. The API and Worker are separate executable hosts.
 
-- PostgreSQL como fuente única de verdad.
-- Módulos con propiedad clara de sus tablas y reglas de negocio.
-- Autorización y reglas de negocio aplicadas en backend.
-- Trazabilidad mediante auditoría, historial de estados y `correlationId`.
-- Procesamiento asíncrono con Outbox, idempotencia, reintentos y Dead Letter Queue.
+## Repository map
 
-## Stack tecnológico
+```text
+apps/
+  api/                    HTTP host
+  worker/                 asynchronous processing host
+src/
+  BuildingBlocks/         cross-cutting platform primitives
+  Modules/                business modules
+tests/                    unit and integration test projects
+infra/
+  local/                  PostgreSQL Compose setup
+docs/
+  adr/                    lasting architecture decisions
+  api/                    HTTP contract
+  design/                 product and technical design
+  runbooks/               repeatable operational procedures
+```
 
-### Backend
+Every project-owned directory has a local README explaining its purpose, ownership and expected contents.
 
-- .NET 10 LTS.
-- ASP.NET Core Web API.
-- Entity Framework Core y Npgsql.
-- OpenAPI, Problem Details y políticas de autorización.
+## Technology
+
+- .NET 10 and ASP.NET Core.
+- Entity Framework Core and Npgsql.
 - PostgreSQL 18.
+- JWT bearer authentication with local Development tokens.
+- Auth0-ready configuration for non-local environments.
+- OpenAPI and Problem Details.
+- xUnit and Testcontainers.
+- Docker Compose for local PostgreSQL.
 
-### Frontend
+## Platform contract
 
-- React con TypeScript estricto.
-- Next.js App Router y MUI Core.
-- TanStack Query y TanStack Table.
-- React Hook Form y Zod.
-- Vitest y Playwright.
+- `GET /health/live` checks process liveness without PostgreSQL.
+- `GET /health/ready` checks PostgreSQL readiness.
+- `GET /api/v1/diagnostics` returns authenticated non-sensitive diagnostics.
+- `GET /openapi/v1.json` exposes OpenAPI in Development.
+- `X-Correlation-Id` is accepted or generated and returned.
+- Problem Details responses include `traceId` and `correlationId` when available.
 
-### Plataforma
+See the [API contract](docs/api/README.md) and [architecture guide](docs/design/arquitectura/arquitectura-y-contratos.md).
 
-- Auth0, OIDC, OAuth 2.0 y Google Workspace SSO.
-- Azure Blob Storage para documentos privados.
-- Azure Service Bus para mensajería.
-- Azure Container Apps, Key Vault y PostgreSQL Flexible Server.
-- GitHub Actions, OpenTelemetry y Application Insights.
+## Local development
 
-## Relación entre repositorios
+Requirements:
 
-Backend y frontend son repositorios independientes. El frontend consume la API REST versionada bajo `/api/v1` y recibe la URL mediante `NEXT_PUBLIC_API_BASE_URL`.
+- .NET SDK 10.0.111 or the version allowed by `global.json`.
+- Docker and Docker Compose.
+- Node.js 24 and pnpm 11 for the frontend repository.
 
-## Estructura del backend
+Start PostgreSQL:
 
-```text
-apps/api/                         # ASP.NET Core API
-apps/worker/                      # Worker de automatizaciones
-src/BuildingBlocks/               # Componentes compartidos
-src/Modules/                      # Librerías por módulo
-tests/                            # Unitarias e integración
-infra/local/                      # PostgreSQL local con Compose
-docs/adr/                         # Decisiones arquitectónicas
-docs/api/                         # Contratos API
-docs/runbooks/                    # Operación local
+```bash
+cp infra/local/.env.example infra/local/.env
+docker compose --env-file infra/local/.env -f infra/local/compose.yml up -d
 ```
 
-## Documentación
+Start the API:
 
-La documentación está organizada por tema en [`docs/design/Requerimientos.md`](docs/design/Requerimientos.md):
+```bash
+dotnet tool restore
+ASPNETCORE_ENVIRONMENT=Development dotnet run \
+  --project apps/api/TechLeap.Crm.Api/TechLeap.Crm.Api.csproj \
+  --urls http://localhost:5000
+```
 
-- [Requerimientos funcionales](docs/design/requerimientos/requerimientos-funcionales.md).
-- [Arquitectura y contratos técnicos](docs/design/arquitectura/arquitectura-y-contratos.md).
-- [Épicas y responsabilidades](docs/design/gestion/epicas-y-responsabilidades.md).
-- [Plan de sprints](docs/design/gestion/plan-de-sprints.md).
-- [Calidad, operación y roadmap](docs/design/gestion/calidad-operacion-y-roadmap.md).
-- [Resumen de necesidades](docs/design/resumen_necesidades_crm_tech_leap.md).
+Start the Worker in a second terminal when asynchronous processing is needed:
 
-## Flujo de trabajo
+```bash
+dotnet run --project apps/worker/TechLeap.Crm.Worker/TechLeap.Crm.Worker.csproj
+```
 
-- `main` contiene versiones integradas y estables.
-- Cada funcionalidad se desarrolla en una rama `feature/...`.
-- Los cambios se integran mediante Pull Request.
-- El CI debe validar build, pruebas, seguridad y migraciones antes de publicar.
+The complete procedure, migration commands and troubleshooting notes are in the [local development runbook](docs/runbooks/local-development.md).
 
-## Próximos pasos
+## Validation
 
-1. Aprobar decisiones pendientes del MVP y las modalidades de vinculación.
-2. Implementar Company y Identity en Sprint 1.
-3. Configurar Auth0, auditoría y servicios Azure por ambiente.
-4. Implementar el flujo crítico: Company → Opportunity → Requirement → Vacancy → Application → Selection → Engagement.
+```bash
+dotnet build tech_leap_crm_backend.slnx --configuration Release
+dotnet test tech_leap_crm_backend.slnx --configuration Release
+dotnet ef migrations list \
+  --project apps/api/TechLeap.Crm.Api/TechLeap.Crm.Api.csproj \
+  --startup-project apps/api/TechLeap.Crm.Api/TechLeap.Crm.Api.csproj
+```
+
+CI also validates dependency vulnerabilities, migration scripts and basic SAST.
+
+## Documentation map
+
+- [Architecture and contracts](docs/design/arquitectura/arquitectura-y-contratos.md).
+- [API contract](docs/api/README.md).
+- [Architecture decisions](docs/adr/README.md).
+- [Requirements index](docs/design/Requerimientos.md).
+- [Sprint planning](docs/design/gestion/plan-de-sprints.md).
+- [Quality and roadmap](docs/design/gestion/calidad-operacion-y-roadmap.md).
+- [Local development runbook](docs/runbooks/local-development.md).
+- [Modules guide](src/Modules/README.md).
+
+## Scope boundaries
+
+Sprint 0 does not implement Company, Opportunity, ATS, Engagements or other functional modules. Azure Service Bus, Blob Storage and Application Insights remain future adapters. Authentication and all business authorization rules remain backend responsibilities.
+
+## Contribution rules
+
+- Keep module ownership explicit.
+- Do not access another module's internals or tables directly.
+- Put shared technical primitives in BuildingBlocks only when they have multiple legitimate consumers.
+- Add migrations for schema changes.
+- Update API contracts and documentation with public behavior changes.
+- Keep tests close to the behavior they validate.
+- Use small, focused commits and pull requests.

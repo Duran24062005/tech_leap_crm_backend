@@ -1,1382 +1,229 @@
-# Tech Leap CRM — Arquitectura y contratos técnicos
+# Tech Leap CRM — Backend architecture and contracts
 
-Documento separado desde `Requerimientos.md`. Contiene la arquitectura, el stack, las reglas técnicas, el modelo de datos, la seguridad y los eventos.
+This document is the technical source of truth for the backend repository and its HTTP boundary with the independent Next.js frontend.
 
----
+## 1. System shape
 
-# 5. Arquitectura
-
-La solución estará compuesta por tres procesos desplegables:
+Tech Leap CRM is an API-first modular monolith. It is one backend solution with explicit business modules and two executable hosts:
 
 ```text
-┌─────────────────────────┐
-│      Frontend Web       │
-│ React + TypeScript      │
-└────────────┬────────────┘
-             │ REST / JSON
-             ▼
-┌─────────────────────────┐
-│          API            │
-│ ASP.NET Core / .NET 10  │
-└────────────┬────────────┘
-             │
-     ┌───────┴────────┐
-     ▼                ▼
-PostgreSQL       Outbox
-                     │
-                     ▼
-              Azure Service Bus
-                     │
-                     ▼
-                  Worker
++-----------------------------+
+| Independent Next.js frontend|
++--------------+--------------+
+               | HTTP/JSON
+               | /api/v1
+               v
++-----------------------------+
+| ASP.NET Core API            |
+| auth, middleware, endpoints |
++--------------+--------------+
+               |
+               v
++-----------------------------+
+| PostgreSQL 18               |
+| module data + platform data |
+| Outbox                      |
++--------------+--------------+
+               |
+               | future message publication
+               v
++-----------------------------+
+| .NET Worker Service         |
+| polling, retries, consumers |
++--------------+--------------+
+               |
+               v
+       Azure Service Bus
+       (future integration)
 ```
 
-Los módulos comparten la base de datos, pero cada módulo es dueño de sus tablas y reglas de negocio. 
+The frontend and backend remain separate repositories. The backend owns HTTP contracts, authentication enforcement and business authorization. The frontend owns presentation and user interaction.
 
----
-
-# 6. Stack tecnológico obligatorio
-
-## Frontend
-
-* React.
-* TypeScript estricto.
-* Next.js App Router.
-* MUI Core.
-* TanStack Query.
-* TanStack Table.
-* React Hook Form.
-* Zod.
-* Vitest.
-* Playwright.
-
-## Backend
-
-* .NET 10 LTS.
-* ASP.NET Core Web API.
-* Dependency Injection.
-* Authorization Policies.
-* Problem Details.
-* OpenAPI.
-
-## Base de datos
-
-* PostgreSQL 18.
-* Entity Framework Core.
-* Npgsql.
-* Migraciones versionadas.
-* Constraints.
-* Índices.
-* `timestamptz`.
-* UTC.
-
-## Identidad
-
-* Auth0.
-* OIDC.
-* OAuth 2.0.
-* Google Workspace SSO.
-* MFA para roles sensibles.
-
-## Mensajería
-
-* Azure Service Bus.
-* Worker Service.
-* Outbox.
-* Idempotencia.
-* Retries.
-* Dead Letter Queue.
-
-## Documentos
-
-* Azure Blob Storage.
-* Contenedores privados.
-* Versionado.
-* Soft delete.
-* SHA-256.
-* Escaneo.
-* URLs temporales.
-
-## Observabilidad
-
-* OpenTelemetry.
-* Application Insights.
-* Logs estructurados.
-* Métricas.
-* Trazas.
-* Alertas.
-
-## Infraestructura
-
-* Azure Container Apps.
-* PostgreSQL Flexible Server.
-* Key Vault.
-* Azure Container Registry.
-* Front Door/WAF.
-* Bicep.
-
-## CI/CD
-
-* GitHub Actions.
-* Build.
-* Tests.
-* SAST.
-* Dependencias.
-* Construcción de imágenes.
-* Staging.
-* Smoke tests.
-* Aprobación de producción.
-
-
-
----
-
-# 7. Estructura de la solución
+## 2. Repository topology
 
 ```text
-/apps
-    /api
-    /worker
-
-/src
-    /Modules
-        /Identity
-        /CRM
-        /ATS
-        /Engagements
-        /Billing
-        /Documents
-        /Work
-        /Integrations
-        /Reporting
-
-/infra
-
-/docs
-    /adr
-    /api
-    /runbooks
+apps/
+  api/TechLeap.Crm.Api/             executable HTTP host
+  worker/TechLeap.Crm.Worker/       executable background host
+src/
+  BuildingBlocks/
+    TechLeap.Crm.BuildingBlocks/    shared platform library
+  Modules/
+    Identity/ CRM/ ATS/              business libraries
+    Engagements/ Billing/ Documents/
+    Work/ Integrations/ Reporting/
+tests/
+  TechLeap.Crm.UnitTests/
+  TechLeap.Crm.IntegrationTests/
+infra/local/                         PostgreSQL Compose
+docs/                                architecture, contracts and operations
 ```
 
-### `/apps/api`
-
-ASP.NET Core:
-
-* Autenticación.
-* Autorización.
-* Módulos.
-* Endpoints.
-
-### `/apps/worker`
-
-Responsable de:
-
-* Automatizaciones.
-* Recordatorios.
-* Integraciones.
-* Exportaciones.
-* Procesamiento de documentos.
-
-### `/src/Modules`
-
-Cada módulo contiene:
-
-* Dominio.
-* Aplicación.
-* Infraestructura.
-* Contratos.
-
-### `/infra`
-
-* Bicep.
-* Configuración por ambiente.
-* Políticas.
-* Monitoreo.
-
-### `/docs`
-
-* ADR.
-* API.
-* Runbooks.
-
-El frontend vive en un repositorio independiente y utiliza Next.js App Router. Su contrato con este repositorio es la API REST versionada bajo `/api/v1`.
-
-
-
----
-
-# 8. Fronteras de módulos
-
-## Identity & Access
-
-### Es dueño de:
-
-* User.
-* Role.
-* Permission.
-* Membresías.
-* Políticas.
-
-### No debe:
-
-* Guardar contraseñas.
-* Duplicar la identidad de Auth0.
-
----
-
-## CRM
-
-### Es dueño de:
-
-* Company.
-* Contact.
-* Opportunity.
-* Requirement.
-
-### No debe:
-
-* Modificar directamente Applications.
-* Modificar directamente Invoices.
-
----
-
-## ATS
-
-### Es dueño de:
-
-* Vacancy.
-* Candidate.
-* Skill.
-* Application.
-* Interview.
-
-### No debe:
-
-* Crear Engagement sin una selección válida.
-
----
-
-## Engagements
-
-### Es dueño de:
-
-* Engagement.
-* Checklist.
-* Seguimientos.
-* Renovaciones.
-
-### No debe:
-
-* Emitir facturas contables.
-* Editar la selección histórica.
-
----
-
-## Billing
-
-### Es dueño de:
-
-* Invoice.
-* Estados operativos de cobro.
-
-### No debe:
-
-* Reemplazar un ERP.
-
----
-
-## Documents
-
-### Es dueño de:
-
-* Document.
-* DocumentVersion.
-* Políticas.
-* Enlaces.
-
-### No debe:
-
-* Exponer rutas de almacenamiento al navegador.
-
----
-
-## Work
-
-### Es dueño de:
-
-* Task.
-* Activity.
-* Notification.
-* StatusHistory.
-
-### No debe:
-
-* Decidir las reglas de transición de otros módulos.
-
----
-
-## Integrations
-
-### Es dueño de:
-
-* Conexiones.
-* Webhooks.
-* Cursores.
-* Mapeos externos.
-
-### No debe:
-
-* Escribir directamente tablas de otros módulos.
-
-
-
----
-
-# 9. Reglas críticas del backend
-
-Cada caso de uso debe implementarse como:
+Dependency direction:
 
 ```text
-Command / Query
-      ↓
-Validación
-      ↓
-Autorización
-      ↓
-Reglas de negocio
-      ↓
-Transacción
-      ↓
-Persistencia
-      ↓
-Outbox
+API host --------+
+Worker host -----+----> modules ----> BuildingBlocks
+Integration tests+----> API and BuildingBlocks
+Unit tests ------+----> the smallest unit under test
 ```
 
-## Reglas
+Hosts compose modules; modules do not depend on hosts. BuildingBlocks contains only cross-cutting technical primitives and must not become a business catch-all.
 
-* No crear vacantes desde requerimientos incompletos.
-* No seleccionar Applications no elegibles.
-* No activar Engagement sin condiciones aprobadas.
-* Utilizar concurrencia optimista.
-* Devolver `409 Conflict` cuando exista conflicto de versión.
-* Todos los timestamps en UTC.
-* Listados paginados.
-* Filtros permitidos.
-* Ordenamiento controlado.
-* No construir SQL desde parámetros libres.
-* Operaciones repetibles requieren idempotencia.
-* Webhooks requieren idempotencia.
-* Importaciones requieren idempotencia.
-* El Outbox se escribe dentro de la misma transacción.
-* El Worker publica los eventos después del commit.
+## 3. Module boundaries
 
-
-
----
-
-# 10. Reglas del frontend
-
-El frontend debe:
-
-* Organizarse por dominios.
-* Utilizar rutas por dominio.
-* Ocultar/deshabilitar acciones según permisos.
-* No tomar decisiones de seguridad.
-* Utilizar formularios por pasos para:
-
-  * Requirement.
-  * Vacancy.
-  * Engagement.
-* Mostrar en cada detalle:
-
-  * Resumen.
-  * Estado.
-  * Responsable.
-  * Próxima acción.
-  * Documentos.
-  * Tareas.
-  * Timeline.
-* Utilizar modales para cambios de estado.
-* Mostrar consecuencias antes de confirmar.
-* Exigir motivo cuando corresponda.
-* Mantener filtros de tablas en URL.
-* Respetar los filtros al exportar.
-* Ejecutar exportaciones grandes de forma asíncrona.
-* Cumplir WCAG 2.2 AA.
-
-
-
----
-
-# 11. API
-
-Base:
+Each module is a separate project with four internal layers:
 
 ```text
-/api/v1
+Module
+  Domain          entities, invariants and domain policies
+  Application     use cases, commands, queries, validation and ports
+  Infrastructure persistence and provider adapters
+  Contracts       public DTOs, messages and integration contracts
 ```
 
-Formato:
+Ownership:
 
-```text
-JSON UTF-8
-```
+| Module | Owns |
+| --- | --- |
+| Identity | Users, roles, permissions and memberships. |
+| CRM | Companies, contacts, opportunities and requirements. |
+| ATS | Vacancies, candidates, skills, applications and interviews. |
+| Engagements | Engagements, checklists, follow-ups and renewals. |
+| Billing | Operational invoices and collection status. |
+| Documents | Private documents, versions and access policies. |
+| Work | Tasks, activities, notifications and status history. |
+| Integrations | External connections, webhooks, cursors and mappings. |
+| Reporting | Operational reports and filtered exports. |
 
-Propiedades:
+A module must not write another module's tables or call another module's internal classes. Cross-module behavior uses explicit contracts, application ports or events.
 
-```text
-camelCase
-```
+## 4. Request lifecycle
 
-Errores:
-
-```text
-application/problem+json
-```
-
-Deben incluir:
-
-* `type`
-* `title`
-* `status`
-* `detail`
-* `traceId`
-* errores por campo
-
-Seguridad:
+The intended use-case flow is:
 
 ```text
-Bearer JWT
+HTTP request
+  -> correlation id accepted or generated
+  -> authentication
+  -> authorization
+  -> request validation
+  -> application command/query
+  -> domain rules
+  -> transaction
+  -> module persistence
+  -> Outbox record in the same transaction
+  -> HTTP response
 ```
 
-Validación:
+The frontend may hide or disable actions for usability, but it never replaces backend authorization or validation.
 
-* issuer.
-* audience.
-* firma.
-* expiración.
-* scopes.
+## 5. API boundary
 
-Autorización:
+The API uses JSON UTF-8, camelCase properties and versioned business routes under `/api/v1`.
 
-* políticas internas.
+Sprint 0 exposes:
 
-Concurrencia:
+- `GET /health/live`: liveness without a database check.
+- `GET /health/ready`: readiness with the PostgreSQL check.
+- `GET /api/v1/diagnostics`: authenticated, non-sensitive platform diagnostics.
+- `GET /openapi/v1.json`: OpenAPI in Development.
+- `POST /api/v1/dev/token`: Development-only local token issuance.
 
-```text
-ETag / If-Match
-```
-
-o:
-
-```text
-version
-```
-
-Idempotencia:
-
-```text
-Idempotency-Key
-```
-
-Auditoría:
-
-```text
-X-Correlation-Id
-```
-
-
-
----
-
-# 12. Endpoints principales
-
-```http
-POST /companies
-```
-
-Crear empresa con control de duplicados y responsable.
-
-```http
-POST /companies/{id}/contacts
-```
-
-Crear contacto y opcionalmente establecerlo como principal.
-
-```http
-POST /opportunities
-```
-
-Crear oportunidad y programar próxima acción.
-
-```http
-POST /opportunities/{id}/requirements
-```
-
-Crear o versionar Requirement.
-
-```http
-POST /requirements/{id}/vacancies
-```
-
-Crear Vacancy en borrador.
-
-```http
-POST /vacancies/{id}/applications
-```
-
-Asociar Candidate mediante Application.
-
-```http
-POST /applications/{id}/interviews
-```
-
-Programar Interview.
-
-```http
-POST /applications/{id}/select
-```
-
-Seleccionar candidato.
-
-```http
-POST /engagements
-```
-
-Crear Engagement idempotente.
-
-```http
-POST /{resource}/{id}/transitions
-```
-
-Ejecutar transición.
-
-```http
-POST /activities
-```
-
-Registrar actividad.
-
-```http
-POST /documents/upload-sessions
-```
-
-Crear sesión temporal de carga.
-
-```http
-GET /reports/{reportKey}/export
-```
-
-Generar exportación.
-
-
-
----
-
-# 27. Modelo de datos
-
-## Company
-
-Campos principales:
-
-```text
-id
-legalName
-tradeName
-taxId
-website
-domain
-phone
-email
-city
-region
-commercialStatus
-source
-ownerUserId
-lastActivityAt
-```
-
-Relaciones:
-
-```text
-Company
- ├── Contact
- └── Opportunity
-```
-
----
-
-## Contact
-
-```text
-companyId
-firstName
-lastName
-jobTitle
-email
-phone
-preferredChannel
-isPrimary
-consentBasis
-```
-
-Regla:
-
-> Solo un contacto principal activo por Company.
-
----
-
-## Opportunity
-
-```text
-companyId
-primaryContactId
-ownerUserId
-name
-modality
-estimatedValue
-currency
-probability
-status
-nextAction
-nextFollowUpAt
-expectedCloseDate
-closeReason
-```
-
----
-
-## Requirement
-
-```text
-opportunityId
-versionNo
-modality
-positionsRequested
-description
-seniority
-experience
-location
-workMode
-budgetMin
-budgetMax
-targetStartDate
-selectionSteps
-completenessStatus
-```
-
-Las versiones aprobadas son inmutables.
-
----
-
-## Vacancy
-
-```text
-requirementId
-title
-description
-positionsCount
-filledPositions
-seniority
-location
-workMode
-compensationMin
-compensationMax
-status
-ownerUserId
-openedAt
-targetStartDate
-closedAt
-```
-
-Regla:
-
-```text
-filledPositions <= positionsCount
-```
-
----
-
-## Candidate
-
-```text
-firstName
-lastName
-email
-phone
-city
-currentRole
-yearsExperience
-availabilityStatus
-source
-consentStatus
-consentAt
-retentionUntil
-anonymizedAt
-```
-
-Estados globales:
-
-```text
-AVAILABLE
-UNAVAILABLE
-ENGAGED
-ARCHIVED
-```
-
-Los datos personales son restringidos.
-
----
-
-## Skill
-
-```text
-normalizedName
-category
-```
-
----
-
-## CandidateSkill
-
-```text
-candidateId
-skillId
-level
-years
-verifiedAt
-```
-
----
-
-## Application
-
-```text
-vacancyId
-candidateId
-stage
-ownerUserId
-matchScore
-presentedAt
-selectedAt
-rejectionReason
-withdrawnReason
-```
-
-Restricción:
-
-```text
-UNIQUE(vacancyId, candidateId)
-```
-
-Application es la fuente del estado del candidato dentro del proceso.
-
----
-
-## Interview
-
-```text
-applicationId
-type
-status
-startsAt
-endsAt
-meetingUrl
-interviewerUserId
-contactId
-result
-feedback
-nextStep
-```
-
-Relación:
-
-```text
-Application 1:N Interview
-```
-
-El feedback interno no debe exponerse a futuros portales.
-
----
-
-## Task
-
-```text
-title
-description
-status
-priority
-assigneeUserId
-createdBy
-dueAt
-completedAt
-reminderAt
-relatedType
-relatedId
-```
-
-Cada Task debe tener responsable.
-
----
-
-## Activity
-
-```text
-type
-channel
-direction
-occurredAt
-actorUserId
-summary
-outcome
-externalId
-relatedType
-relatedId
-```
-
-Los eventos importados deben ser idempotentes mediante:
-
-```text
-provider + externalId
-```
-
----
-
-## Document
-
-```text
-fileName
-category
-status
-sensitivity
-mimeType
-sizeBytes
-sha256
-storageProvider
-storageKey
-currentVersionNo
-approvedBy
-approvedAt
-lockedAt
-```
+Diagnostics include service, version, environment, UTC timestamp, `traceId` and `correlationId`. The endpoint must never expose secrets, tokens, connection strings or personal data.
 
-No guarda una URL permanente.
+Errors use `application/problem+json`. Centralized handling adds `traceId` and `correlationId` when available. The exact public contract is maintained in [docs/api](../../api/README.md).
 
----
+## 6. Authentication and configuration
 
-## DocumentVersion
+Development uses a symmetric local JWT configured through:
 
-```text
-documentId
-versionNo
-storageVersionId
-sha256
-sizeBytes
-uploadedBy
-createdAt
-```
-
-Restricción:
-
-```text
-UNIQUE(documentId, versionNo)
-```
-
-Una versión aprobada no puede ser reemplazada.
-
----
-
-## Engagement
-
-```text
-applicationId
-companyId
-candidateId
-vacancyId
-modality
-status
-startDate
-endDate
-value
-currency
-billingCycle
-contractualStatus
-ownerUserId
-renewalReviewAt
-endReason
-```
-
-En MVP:
-
-```text
-Application 0..1 Engagement
-```
-
----
-
-## Invoice
-
-```text
-engagementId
-companyId
-invoiceNumber
-billingPeriodStart
-billingPeriodEnd
-issueDate
-dueDate
-subtotal
-tax
-total
-currency
-status
-paidAt
-externalAccountingId
-```
-
-Relación:
-
-```text
-Engagement 1:N Invoice
-```
-
----
-
-## StatusHistory
-
-```text
-entityType
-entityId
-fromStatus
-toStatus
-reasonCode
-comment
-changedBy
-changedAt
-correlationId
-metadata
-```
-
-Debe ser:
-
-```text
-append-only
-```
-
----
-
-## AuditLog
-
-```text
-actorUserId
-action
-entityType
-entityId
-changedFields
-ipHash
-userAgent
-occurredAt
-correlationId
-```
-
-Debe auditar:
-
-* Altas.
-* Ediciones.
-* Exportaciones.
-* Descargas.
-* Permisos.
-* Acciones sensibles.
-
-Sin registrar valores sensibles completos.
-
----
-
-## OutboxMessage
-
-```text
-eventType
-aggregateType
-aggregateId
-payload
-occurredAt
-processedAt
-attempts
-lastError
-```
-
-Se inserta dentro de la transacción.
-
-El Worker realiza los reintentos.
-
-Los fallos permanentes pasan a revisión.
-
-
-
----
-
-# 28. Relaciones críticas
-
-```text
-Company
-   1:N
-Opportunity
-   1:N
-Requirement
-   1:N
-Vacancy
-```
-
-```text
-Candidate
-   N:M
-Vacancy
-```
-
-mediante:
-
-```text
-Application
-```
-
-Application es obligatoria para:
-
-* Interview.
-* Selection.
-* Engagement.
-
-En MVP:
-
-```text
-Application 0..1 Engagement
-```
-
-Engagement:
-
-```text
-1:N Invoice
-```
-
-
-
----
-
-# 29. Constraints obligatorios en PostgreSQL
-
-```sql
-UNIQUE(vacancyId, candidateId)
-```
-
-Evita Application duplicadas.
-
-```sql
-CHECK(
-    filledPositions >= 0
-    AND
-    filledPositions <= positionsCount
-)
-```
-
-Evita exceso de posiciones cubiertas.
+- `ConnectionStrings__Default`.
+- `Jwt__Issuer`.
+- `Jwt__Audience`.
+- `Jwt__SigningKey`.
+- `AllowedOrigins__Frontend`.
 
-```sql
-UNIQUE(documentId, versionNo)
-```
-
-Controla versiones.
-
-```sql
-UNIQUE(provider, externalId)
-```
-
-Para operaciones idempotentes cuando aplique.
-
-Además:
-
-* FK con `RESTRICT`.
-* Índices únicos parciales para registros activos.
-* Índices en campos críticos.
-
-
-
----
-
-# 30. Seguridad documental
-
-Flujo:
-
-```text
-Browser
-   ↓
-Upload Session
-   ↓
-URL temporal
-   ↓
-Azure Blob
-   ↓
-Worker
-   ↓
-Hash
-   ↓
-Validación
-   ↓
-Malware Scan
-   ↓
-AVAILABLE
-```
-
-Antes del análisis:
-
-```text
-QUARANTINED
-```
-
-Después:
-
-```text
-AVAILABLE
-```
-
-Las descargas utilizan URLs temporales.
-
-Los documentos:
-
-```text
-APPROVED
-SIGNED
-```
-
-no pueden reemplazarse.
-
-Una modificación crea una nueva versión.
-
+Auth0-ready environments additionally use:
 
+- `Auth0__Authority`.
+- `Auth0__Audience`.
 
----
+When both Auth0 values are configured, the API uses the Auth0 authority and audience. Otherwise, it uses the local JWT settings. The Development token endpoint is not registered outside Development.
 
-# 31. Clasificación documental
+Secrets are supplied by environment-specific secret stores or ignored local files. They are never committed.
 
-## Interno
+## 7. Persistence
 
-Ejemplos:
+PostgreSQL is the source of truth. EF Core with Npgsql maps the platform schema.
 
-* Propuestas.
-* Formatos.
-* Notas operativas.
+Current conventions:
 
-Controles:
+- PostgreSQL `timestamptz` columns.
+- UTC timestamps in application code.
+- Consistent snake_case database names.
+- JSON payloads in `jsonb` where appropriate.
+- Indexes for pending Outbox processing and correlation lookup.
+- Versioned migrations owned by the API migration assembly.
 
-* Autenticación.
-* RBAC.
-* Auditoría.
+The first migration creates `outbox_messages`. Module migrations and mappings must preserve module ownership and be reviewed with the corresponding domain change.
 
-## Confidencial
+## 8. Outbox and Worker
 
-Ejemplos:
+The Outbox record is written in the same transaction as the state change that produced it. This prevents a successful database change from losing its integration message.
 
-* CV.
-* Pruebas.
-* Feedback.
-* Acuerdos.
-* Contratos.
+The Worker is a separate process responsible for future:
 
-Controles:
+- Outbox polling.
+- Idempotent publication.
+- Retry handling.
+- Dead-letter behavior.
+- Azure Service Bus delivery.
 
-* Cifrado.
-* Need-to-know.
-* Descarga auditada.
-* Retención.
+Sprint 0 only provides the persistence model and hosted-service polling boundary. It does not connect to Azure Service Bus.
 
-## Restringido
+## 9. Observability
 
-Ejemplos:
+Every request receives or propagates `X-Correlation-Id`. ASP.NET Core's trace identifier is exposed as `traceId` in diagnostics and Problem Details. Correlation is returned in the response header.
 
-* Identificación.
-* Datos bancarios.
-* Tarifas.
-* Facturas.
-* Documentos legales especiales.
+Future observability work may add OpenTelemetry, structured metrics and Application Insights. No real Application Insights dependency is required for Sprint 0.
 
-Controles:
+## 10. Local infrastructure
 
-* Permiso específico.
-* MFA.
-* Acceso temporal.
-* Alertas.
-* Revisión periódica.
+`infra/local/compose.yml` starts PostgreSQL 18 with:
 
+- Persistent named volume.
+- Configurable host port.
+- Healthcheck.
+- Local network.
+- Environment values supplied by an ignored `.env` created from `.env.example`.
 
-
----
-
-# 32. Permisos mínimos
-
-## Identity
-
-```text
-user.read
-user.manage
-role.read
-role.manage
-audit.read
-```
-
-## Company
-
-```text
-company.read
-company.create
-company.update
-company.archive
-contact.manage
-```
-
-## Opportunity
-
-```text
-opportunity.read
-opportunity.create
-opportunity.update
-opportunity.transition
-opportunity.close
-opportunity.reopen
-opportunity.reassign
-financialFields.read
-financialFields.update
-```
-
-## Requirement
-
-```text
-requirement.read
-requirement.create
-requirement.update
-requirement.complete
-requirement.approveVersion
-```
-
-## Vacancy
-
-```text
-vacancy.read
-vacancy.create
-vacancy.update
-vacancy.publish
-vacancy.transition
-vacancy.close
-vacancy.reopen
-vacancy.reassign
-```
-
-## Candidate
-
-```text
-candidate.read
-candidate.create
-candidate.update
-candidate.archive
-pii.read
-compensation.read
-consent.manage
-```
-
-## Application
-
-```text
-application.read
-application.create
-application.transition
-application.evaluate
-application.present
-application.select
-application.reject
-application.reopen
-```
-
-## Interview
-
-```text
-interview.read
-interview.schedule
-interview.update
-interview.cancel
-interview.feedback.write
-interview.internalFeedback.read
-```
-
-## Engagement
-
-```text
-engagement.read
-engagement.create
-engagement.update
-engagement.transition
-engagement.activate
-engagement.end
-engagement.renew
-```
-
-## Document
-
-```text
-document.read
-document.upload
-document.download
-document.approve
-document.reject
-document.sign
-document.restricted.read
-```
-
-## Billing
-
-```text
-invoice.read
-invoice.create
-invoice.update
-invoice.issue
-invoice.markPaid
-financial.export
-```
-
-## Work / Reporting
-
-```text
-task.manageOwn
-task.manageAll
-activity.create
-report.read
-export.basic
-export.sensitive
-```
+The API and Worker connect through `ConnectionStrings:Default`. Integration tests use isolated Testcontainers PostgreSQL instances instead of the shared local database.
 
+## 11. Testing and CI
 
+Unit tests validate isolated components such as middleware and future domain invariants.
 
----
+Integration tests start the API with `WebApplicationFactory`, start PostgreSQL through Testcontainers and validate:
 
-# 33. Eventos de dominio prioritarios
+- Liveness.
+- Readiness.
+- Authentication.
+- Diagnostics and correlation.
+- Migrations and Outbox persistence.
 
-| Evento                     | Efectos                                                    |
-| -------------------------- | ---------------------------------------------------------- |
-| `CompanyCreated`           | Timeline, deduplicación secundaria y seguimiento inicial   |
-| `OpportunityCreated`       | Pipeline, alertas, tareas y dashboard                      |
-| `OpportunityStatusChanged` | Pipeline, alertas, tareas y dashboard                      |
-| `RequirementCompleted`     | Notificar Talento y habilitar creación de Vacancy          |
-| `VacancyOpened`            | Asignación, SLA de búsqueda y notificación                 |
-| `ApplicationPresented`     | Actualizar Vacancy/Opportunity y solicitar feedback        |
-| `InterviewScheduled`       | Calendar, recordatorios y tareas                           |
-| `CandidateSelected`        | Checklist jurídico, actualización Vacancy y notificaciones |
-| `EngagementReadyToStart`   | Tareas de inicio, seguimiento y disponibilidad             |
-| `EngagementActivated`      | Tareas, facturación, seguimiento y disponibilidad          |
-| `DocumentApproved`         | Checklist, notificación y posible transición               |
-| `DocumentRejected`         | Checklist, notificación y posible transición               |
-| `InvoiceDue`               | Alertas financieras, dashboard y seguimiento               |
-| `InvoiceOverdue`           | Alertas financieras, dashboard y seguimiento               |
-| `InvoicePaid`              | Alertas financieras, dashboard y seguimiento               |
-| `ProcessPaused`            | Cancelar/recrear recordatorios, indicadores y timeline     |
-| `ProcessReopened`          | Cancelar/recrear recordatorios, indicadores y timeline     |
-| `ProcessClosed`            | Cancelar/recrear recordatorios, indicadores y timeline     |
+Backend CI validates restore, build, unit tests, integration tests, migration scripts, dependency vulnerabilities and basic SAST.
 
+## 12. Current limits
 
+Sprint 0 intentionally does not implement:
 
----
+- Company, Opportunity, Requirement or ATS use cases.
+- Engagement or Billing workflows.
+- Real Auth0 tenant integration.
+- Azure Service Bus.
+- Azure Blob Storage.
+- Application Insights.
+- Production infrastructure.
 
+Functional modules must follow the boundaries and rules in this document as they are introduced.
